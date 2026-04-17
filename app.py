@@ -713,7 +713,7 @@ CSV/Excel Data:
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', legend=dict(font_size=11))
                 fig.update_traces(textposition='inside', textinfo='percent+label')
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, key='asset_pie_chart')
 
         with c2:
             st.markdown("<div class='kpi-label'>Sector Allocation</div>", unsafe_allow_html=True)
@@ -768,7 +768,7 @@ CSV/Excel Data:
     # ─────────────────────────────────────────────────────────────
     with tab3:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔬 Generate AI Forensic Report", use_container_width=True):
+        if st.button("🔬 Generate AI Forensic Report", type='primary'):
             with st.spinner("Decoding behavioral signatures and capital allocation patterns..."):
                 report = ai_service.generate_portfolio_report(processed_df, stats, model_choice=llm_choice)
                 if 'error' not in report:
