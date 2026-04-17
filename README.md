@@ -1,8 +1,10 @@
-# 🧠 Universal AI Portfolio Analyzer
+# 🧠 Universal AI Portfolio Analyzer 
 
 > **Any broker. Any format. Instant insights.**
 
 A production-grade AI-powered portfolio analysis engine that automatically parses holding statements from **any Indian broker**, enriches missing data, fetches live market prices, and delivers a forensic health report — all through a clean Streamlit dashboard.
+
+# Access LINK -: https://aiportfoli.streamlit.app/
 
 ---
 
@@ -63,9 +65,7 @@ pip install -r requirements.txt
 ### 2. Configure environment
 Create a `.env` file in the project root:
 ```env
-GEMINI_API_KEY_1=your_gemini_key_1
-GEMINI_API_KEY_2=your_gemini_key_2
-CLAUDE_API_KEY=your_claude_key
+API_KEY_1=
 OPENROUTER_API_KEY=your_openrouter_key
 SERP_API_KEY=your_serpapi_key
 FMP_KEY_1=your_fmp_key
@@ -148,7 +148,7 @@ portfolio_analyzer_pipeline/
 - **Frontend**: Streamlit
 - **AI Models**: Google Gemini 2.5 Flash, Claude 3.5 Sonnet, OpenRouter
 - **Data**: Pandas, NumPy
-- **Market Data**: FMP API, Alpha Vantage
+- **Market Data**: FMP, Alpha Vantage
 - **ISIN Search**: SerpAPI (Google), Screener.in, NSE India
 - **Storage**: Supabase (optional)
 - **Language**: Python 3.10+
@@ -158,6 +158,12 @@ portfolio_analyzer_pipeline/
 ## 📄 License
 
 MIT License — free to use, modify, and distribute.
+
+
+## Developed by Ankit Dahiya
+
+## Copyright 
+All Rights Reserved@2026
 
 ---
 
