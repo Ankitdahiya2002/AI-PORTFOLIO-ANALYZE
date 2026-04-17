@@ -305,11 +305,28 @@ Name, Stock Name, Script Name, Scrip Name, Company Name, Symbol, Instrument, Des
 Handle multi-section files by treating mid-file header rows as new tables and merging results.
 
 STEP 2 — Column Mapping
-Map detected columns to: stock_name, isin, quantity, invested_amount, current_value, avg_price.
-- avg_price: the per-unit average purchase / cost price (e.g. "Avg Cost", "Avg Price", "Average Price", "Buy Avg", "Purchase Price").
-- invested_amount: the TOTAL cost of the position. If a total invested column exists, use it. If NOT (e.g. Zerodha, Upstox only give avg_cost per unit), compute: invested_amount = quantity × avg_price.
-- current_value: the TOTAL current market value. If a total column exists, use it. If NOT, compute: current_value = quantity × CMP/LTP.
-- ALWAYS populate avg_price even when invested_amount is already computed.
+Map detected columns to: stock_name, isin, quantity, invested_amount, current_value, avg_price, sector.
+
+CRITICAL avg_price RULES — READ CAREFULLY:
+- avg_price = the per-unit average PURCHASE / COST price paid by the investor.
+- Zerodha column names for avg_price: "Avg. cost", "Avg cost", "Average Cost", "Avg Price"
+- Groww/Angel column names for avg_price: "Buy Avg", "Avg Buy Price", "Purchase Price"
+- NEVER set avg_price to 0 if ANY of these columns exist in the data.
+- NEVER use the current market price (CMP/LTP) as avg_price.
+- If avg_price cannot be found, use 0.
+
+invested_amount = TOTAL rupees spent to buy the holding.
+- If a total invested column exists ("Invested Value", "Total Cost", "Buy Value"), use it directly.
+- If NOT (Zerodha/Upstox only give per-unit avg cost), COMPUTE: invested_amount = quantity × avg_price.
+- NEVER leave invested_amount as 0 if avg_price > 0.
+
+current_value = TOTAL current market value.
+- If a total current value column exists, use it. If NOT, compute: current_value = quantity × CMP/LTP.
+
+sector = Industry/Sector of the company (e.g. "Financial Services", "Industrials", "Healthcare").
+- Use your knowledge to populate sector for well-known Indian stocks.
+- If unknown, use "Equity".
+
 Priority: Prefer total value columns over per-unit × qty calculations if both exist.
 
 STEP 3 — Row Filtering
@@ -336,11 +353,12 @@ STEP 6 — Missing Data & Multi-Sheet Handling
 
 STEP 7 — Output Format
 Return ONLY a valid JSON array. No explanation text, no markdown code fences.
-Key order per object: stock_name, isin, quantity, invested_amount, current_value, avg_price
-- avg_price: ALWAYS include the per-unit average purchase price — even if invested_amount is already computed.
-- invested_amount: TOTAL invested. Compute as qty × avg_price if no total column exists (e.g. Zerodha, Upstox format).
-- current_value: TOTAL current market value. Compute as qty × CMP/LTP if no total column exists.
-- Set any truly unknown field to 0 (never null).
+Key order per object: stock_name, isin, quantity, invested_amount, current_value, avg_price, sector
+- avg_price: MUST be the broker's avg cost per unit. NEVER 0 if the file has an avg cost column.
+- invested_amount: qty × avg_price if no total invested column. NEVER 0 if avg_price > 0.
+- current_value: TOTAL current market value (qty × LTP if no total column).
+- sector: Use your knowledge for common Indian stocks (e.g. BEL→Industrials, HDFC→Financial Services). Default "Equity" if unknown.
+- Set any truly unknown numeric field to 0 (never null).
 
 CSV/Excel Data:
 {combined_sample}"""
@@ -467,21 +485,24 @@ CSV/Excel Data:
                         inv      = clean_numeric(item.get('invested_amount', 0))
                         curr     = clean_numeric(item.get('current_value', 0))
                         avg_px   = clean_numeric(item.get('avg_price', 0))
+                        sector   = str(item.get('sector', 'Unknown')).strip() or 'Unknown'
 
                         # ── Derive missing fields from available data ──
                         # Case 1: qty missing but we have inv + avg_price
                         if qty == 0 and inv > 0 and avg_px > 0:
                             qty = round(inv / avg_px, 2)
 
-                        # Case 2: invested_amount missing but we have qty + avg_price
-                        # (Common in Zerodha, Upstox — they only give avg_cost per unit)
+                        # Case 2: invested_amount missing (Zerodha/Upstox give avg_cost only)
                         if inv == 0 and qty > 0 and avg_px > 0:
                             inv = round(qty * avg_px, 2)
 
-                        # Case 3: current_value missing but we have qty + avg_price
-                        # (placeholder — live market data will overwrite later)
+                        # Case 3: current_value missing — use avg_price as placeholder
                         if curr == 0 and qty > 0 and avg_px > 0:
-                            curr = round(qty * avg_px, 2)  # at-cost placeholder
+                            curr = round(qty * avg_px, 2)
+
+                        # Log derivation status for debugging
+                        if inv == 0 and qty > 0:
+                            st.toast(f"⚠️ {raw_name}: avg_price={avg_px}, inv still 0 after derivation", icon="⚠️")
 
                         if should_skip_row(raw_name, qty, inv):
                             continue
@@ -500,7 +521,8 @@ CSV/Excel Data:
                             'quantity': max(0, int(round(qty))),
                             'invested_amount': round(inv, 2),
                             'current_value': round(curr, 2),
-                            '_avg_price': round(avg_px, 2),  # carry for ltp derivation
+                            '_avg_price': round(avg_px, 2),
+                            'sector': sector,
                         })
 
                     if result_data:
@@ -520,7 +542,12 @@ CSV/Excel Data:
                         df_p['pnl']     = (df_p['current_val'] - df_p['invested_val']).round(2)
                         df_p['pnl_pct'] = ((df_p['pnl'] / df_p['invested_val'].replace(0, np.nan)) * 100).fillna(0).round(2)
                         df_p['asset_type'] = df_p['stock_name'].apply(detect_asset_type)
-                        df_p['sector']     = 'Unknown'
+                        # Preserve AI-returned sector — only fill 'Unknown' where missing/empty
+                        if 'sector' not in df_p.columns:
+                            df_p['sector'] = 'Unknown'
+                        else:
+                            df_p['sector'] = df_p['sector'].replace('', 'Unknown').fillna('Unknown')
+
                         # Drop internal helper column
                         df_p.drop(columns=['_avg_price'], errors='ignore', inplace=True)
                         valid_isins = df_p['isin'].str.match(r'^IN[A-Z]{2}[0-9]{10}$')
