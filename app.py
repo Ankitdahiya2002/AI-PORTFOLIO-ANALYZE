@@ -177,15 +177,31 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-    # Keys from .env
-    fmp_key    = os.getenv('FMP_KEY_1', '')
-    av_key     = os.getenv('ALPHA_VANTAGE_KEY', '')
-    gemini_key = os.getenv('GEMINI_API_KEY', '')
-    claude_key = os.getenv('CLAUDE_API_KEY', '')
+    # ── Load API keys: st.secrets (Streamlit Cloud) → .env (local) ──────
+    def _get(key, default=''):
+        """Read from st.secrets first (Streamlit Cloud), fallback to os.getenv (.env local)."""
+        try:
+            return st.secrets.get(key, '') or os.getenv(key, default)
+        except Exception:
+            return os.getenv(key, default)
 
-    # Last item wins for duplicate keys in .env
-    supabase_url = os.getenv("SUPABASE_URL", "")
-    supabase_key = os.getenv("SUPABASE_KEY", "")
+    fmp_key      = _get('FMP_KEY_1')   or _get('FMP_KEY_2')
+    av_key       = _get('ALPHA_VANTAGE_KEY')
+    gemini_key   = _get('GEMINI_API_KEY_1') or _get('GEMINI_API_KEY_2') or _get('GEMINI_API_KEY')
+    claude_key   = _get('CLAUDE_API_KEY')
+    serpapi_key  = _get('SERP_API_KEY')
+    supabase_url = _get('SUPABASE_URL')
+    supabase_key = _get('SUPABASE_KEY')
+
+    # Push keys to environment so downstream services can read them
+    for _k, _v in {
+        'GEMINI_API_KEY_1': gemini_key, 'GEMINI_API_KEY_2': _get('GEMINI_API_KEY_2'),
+        'CLAUDE_API_KEY': claude_key, 'SERP_API_KEY': serpapi_key,
+        'FMP_KEY_1': fmp_key, 'ALPHA_VANTAGE_KEY': av_key,
+        'SUPABASE_URL': supabase_url, 'SUPABASE_KEY': supabase_key,
+    }.items():
+        if _v:
+            os.environ[_k] = _v
 
     # Automatically default to Claude, fallback handles Gemini transparently
     llm_choice = "Claude"
