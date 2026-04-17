@@ -664,12 +664,10 @@ CSV/Excel Data:
         e1, e2 = st.columns(2)
         with e1:
             st.download_button("⬇️ Download Holdings JSON", data=json_out,
-                               file_name="portfolio_holdings.json", mime="application/json",
-                               use_container_width=True)
+                               file_name="portfolio_holdings.json", mime="application/json")
         with e2:
             st.download_button("⬇️ Download Audit CSV", data=csv_out,
-                               file_name="portfolio_audit.csv", mime="text/csv",
-                               use_container_width=True)
+                               file_name="portfolio_audit.csv", mime="text/csv")
 
     # ─────────────────────────────────────────────────────────────
     # TAB 2: VISUALS
