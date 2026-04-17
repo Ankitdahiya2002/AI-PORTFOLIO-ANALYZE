@@ -156,12 +156,12 @@ portfolio_analyzer_pipeline/
 - **Language**: Python 3.10+
 
 ---
-# Developed by -: Ankit Dahiya
+## Developed by -: Ankit Dahiya
 ## 📄 License
 
 MIT License — free to use, modify, and distribute.
 
-                                 ## All Rights Reserved @2026
+                                                                                All Rights Reserved @2026
 ---
 
 <p align="center">Built with ❤️ for Indian retail investors 🇮🇳</p>
