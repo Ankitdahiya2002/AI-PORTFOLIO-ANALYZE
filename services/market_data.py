@@ -139,7 +139,7 @@ class MarketDataService:
         # Ensure required columns exist
         for col in ['ltp', 'pe', 'beta', 'sector', 'mkt_cap']:
             if col not in df.columns:
-                df[col] = 0 if col != 'sector' else 'Unknown'
+                df[col] = 0.0 if col != 'sector' else 'Unknown'
 
         for index, row in df.iterrows():
             stock  = row.get('stock_name', row.get('symbol', ''))
