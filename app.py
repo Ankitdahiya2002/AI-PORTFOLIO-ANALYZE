@@ -291,7 +291,8 @@ try:
             for i, raw_df in enumerate(all_dfs):
                 if raw_df.empty:
                     continue
-                sheet_csv = raw_df.head(200).to_csv(index=False, header=False)
+                sheet_csv = raw_df.head(200).to_csv(index=False, header=True)  # include headers so AI can map columns correctly
+
                 all_samples.append(f"--- Sheet/File {i+1} ---\n{sheet_csv}")
             combined_sample = "\n".join(all_samples)
 
