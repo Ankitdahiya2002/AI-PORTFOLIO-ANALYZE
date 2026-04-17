@@ -161,7 +161,7 @@ portfolio_analyzer_pipeline/
 
 MIT License — free to use, modify, and distribute.
 
-## All Rights Reserved @2026
+                                 ## All Rights Reserved @2026
 ---
 
 <p align="center">Built with ❤️ for Indian retail investors 🇮🇳</p>
