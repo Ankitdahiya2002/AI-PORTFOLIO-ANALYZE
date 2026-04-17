@@ -680,7 +680,7 @@ CSV/Excel Data:
             'current_value': 'Market Value (₹)', 'pnl': 'P&L (₹)',
             'pnl_pct': 'P&L %', 'asset_type': 'Asset Type', 'sector': 'Sector'
         })
-        st.dataframe(styled, use_container_width=True, height=400)
+        st.dataframe(styled, height=400)
 
         st.markdown("---")
         ecols = ['stock_name', 'isin', 'quantity', 'invested_amount', 'current_value']
@@ -725,7 +725,7 @@ CSV/Excel Data:
                 fig.update_layout(margin=dict(t=10,b=10,l=10,r=10),
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', coloraxis_showscale=False, yaxis_title='', xaxis_title='₹')
-                st.plotly_chart(fig, use_container_width=True, key='sector_chart')
+                st.plotly_chart(fig, key='sector_chart')
             else:
                 st.info("Sector data available after market data fetch.", icon="📡")
 
@@ -744,7 +744,7 @@ CSV/Excel Data:
                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                               font_color='white', xaxis_title='₹', yaxis_title='',
                               yaxis=dict(autorange='reversed'))
-            st.plotly_chart(fig, use_container_width=True, key='top10_chart')
+            st.plotly_chart(fig, key='top10_chart')
 
         st.markdown("<div class='kpi-label' style='margin-top:16px;'>P&L Distribution</div>", unsafe_allow_html=True)
         pnl_df = processed_df.nlargest(20, 'pnl').copy()
@@ -760,7 +760,7 @@ CSV/Excel Data:
                           font_color='white', coloraxis_showscale=False,
                           xaxis_title='', yaxis_title='P&L (₹)',
                           xaxis_tickangle=-35)
-        st.plotly_chart(fig, use_container_width=True, key='pnl_dist_chart')
+        st.plotly_chart(fig, key='pnl_dist_chart')
 
     # ─────────────────────────────────────────────────────────────
     # TAB 3: AI FORENSICS
