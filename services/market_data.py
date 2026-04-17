@@ -1,13 +1,19 @@
 import time
 import warnings
 import logging
-import yfinance as yf
 import pandas as pd
 import re
 
 # Silence yfinance 404 errors from polluting the terminal
 logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
+
+try:
+    import yfinance as yf
+    _YF_AVAILABLE = True
+except ImportError:
+    yf = None
+    _YF_AVAILABLE = False
 
 # Known ticker corrections for commonly misresolved Indian stocks
 NSE_OVERRIDES = {
@@ -77,6 +83,8 @@ class MarketDataService:
 
     def _fetch_ticker(self, sym):
         """Safely fetch yfinance ticker info, returning None on any error."""
+        if not _YF_AVAILABLE:
+            return None
         try:
             t = yf.Ticker(sym)
             info = t.info
