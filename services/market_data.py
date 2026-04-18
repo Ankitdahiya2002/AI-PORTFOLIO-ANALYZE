@@ -90,21 +90,49 @@ class MarketDataService:
             info = t.info
             # yfinance returns a minimal dict on 404 — check for a real price
             price = info.get('regularMarketPrice') or info.get('currentPrice') or info.get('navPrice')
-            if not price:
-                return None
-            return {
-                'price':        float(price),
-                'pe':           float(info.get('trailingPE') or 0),
-                'beta':         float(info.get('beta') or 1.0),
-                'mkt_cap':      float(info.get('marketCap') or 0),
-                'sector':       info.get('sector') or 'Unknown',
-                'industry':     info.get('industry') or 'Unknown',
-                'company_name': info.get('longName') or sym,
-                'ticker':       sym,
-                'source':       'Yahoo Finance',
-            }
+            if price:
+                return {
+                    'price':        float(price),
+                    'pe':           float(info.get('trailingPE') or 0),
+                    'beta':         float(info.get('beta') or 1.0),
+                    'mkt_cap':      float(info.get('marketCap') or 0),
+                    'sector':       info.get('sector') or 'Unknown',
+                    'industry':     info.get('industry') or 'Unknown',
+                    'company_name': info.get('longName') or sym,
+                    'ticker':       sym,
+                    'source':       'Yahoo Finance',
+                }
         except Exception:
-            return None
+            pass
+
+        # ---- FALLBACK: Financial Modeling Prep (FMP) ----
+        import os, requests
+        fmp_key = os.getenv('FMP_KEY_1') or os.getenv('FMP_KEY_2')
+        if fmp_key:
+            try:
+                # FMP uses .NS exactly like Yahoo
+                resp = requests.get(f"https://financialmodelingprep.com/api/v3/quote/{sym}?apikey={fmp_key}", timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data and len(data) > 0:
+                        quote = data[0]
+                        price = quote.get('price')
+                        if price:
+                            return {
+                                'price':        float(price),
+                                'pe':           float(quote.get('pe') or 0),
+                                'beta':         1.0, # FMP quote doesn't have beta
+                                'mkt_cap':      float(quote.get('marketCap') or 0),
+                                'sector':       'Unknown',
+                                'industry':     'Unknown',
+                                'company_name': quote.get('name') or sym,
+                                'ticker':       sym,
+                                'source':       'FMP',
+                            }
+            except Exception:
+                pass
+                
+        return None
 
     def fetch_yf_data(self, stock_name, isin='', ticker_hint=''):
         """
@@ -150,9 +178,8 @@ class MarketDataService:
             data   = self.fetch_yf_data(stock, isin, hint)
 
             if data and data['price'] > 0:
-                current_ltp = df.at[index, 'ltp']
-                if pd.isna(current_ltp) or float(current_ltp) == 0:
-                    df.at[index, 'ltp'] = data['price']
+                # AGGRESSIVELY OVERWRITE STALE BROKER DATA WITH REAL-TIME LIVE MARKET DATA
+                df.at[index, 'ltp']     = data['price']
                 df.at[index, 'pe']      = data.get('pe', 0)
                 df.at[index, 'beta']    = data.get('beta', 1.0)
                 df.at[index, 'mkt_cap'] = data.get('mkt_cap', 0)
@@ -163,13 +190,12 @@ class MarketDataService:
 
             time.sleep(0.03)  # gentle pacing — ~33 stocks/sec
 
-        # Recalculate P&L using live prices where available (or preserved broker prices)
+        # Recalculate P&L using the new LIVE prices
         ltp_col = df['ltp'].astype(float)
         qty_col = df['qty'].astype(float) if 'qty' in df.columns else df['quantity'].astype(float)
 
-        # Update current_val ONLY if missing
-        missing_val_mask = (df['current_val'] == 0) | df['current_val'].isna()
-        live_mask = (ltp_col > 0) & missing_val_mask
+        # Force upgrade ALL current values to live market valuations
+        live_mask = (ltp_col > 0)
         df.loc[live_mask, 'current_val'] = (ltp_col * qty_col)[live_mask]
 
         # Sync display columns with calculated values
