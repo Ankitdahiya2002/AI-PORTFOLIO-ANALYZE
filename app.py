@@ -322,7 +322,6 @@ try:
     # ── AI FALLBACK (if rule-based fails) ─────────────────────────
     if not processed_dfs and ai_service.is_configured():
         with st.status("🧠 AI Forensic Engine: Direct Parsing...", expanded=True) as status:
-            st.write("Rule-based engine couldn't match schema. Engaging AI forensics...")
 
             # Combine all sheets into one CSV sample for the AI
             all_samples = []
@@ -641,15 +640,8 @@ CSV/Excel Data:
         
         # 1. Supabase Fast Lookup
         if db_service.is_configured():
-            with st.status("🗄️ Querying Global Database...", expanded=False) as status:
+            with st.spinner("🗄️ Querying Global Database..."):
                 cached_data = db_service.resolve_instruments(stocks)
-                
-                # ------ DEBUG OUTPUT TO SCREEN ------
-                st.write("🔍 **Debug — Stocks Sent to Database:**", stocks)
-                st.write("🔍 **Debug — Database Response:**", cached_data)
-                if not cached_data:
-                    st.warning("⚠️ The Supabase table `isin` returned ZERO matches for these stocks. Double check if the `nseTicker` or `name` columns contain exact matches in your database, or if the table is empty!")
-                # ------------------------------------
 
                 for name, data in cached_data.items():
                     mask = processed_df['stock_name'] == name
@@ -659,25 +651,22 @@ CSV/Excel Data:
                         processed_df.loc[mask, 'sector'] = data["sector"]
                     if data.get("ticker"):
                         processed_df.loc[mask, '_ticker_hint'] = data["ticker"]
-                status.update(label=f"✅ {len(cached_data)} Instruments found in Database", state="complete")
 
         # 2. AI Fallback for Remaining
         missing_isin_mask = processed_df['isin'].str.len() < 5
         if missing_isin_mask.any() and ai_service.is_configured():
-            with st.status("🔍 Resolving Missing ISINs via AI...", expanded=False) as status:
+            with st.spinner("🔍 Resolving Missing ISINs via AI..."):
                 remaining_stocks = processed_df.loc[missing_isin_mask, 'stock_name'].unique().tolist()
                 isin_map = ai_service.lookup_isins(remaining_stocks, model_choice=llm_choice)
                 for name, isin in isin_map.items():
                     processed_df.loc[processed_df['stock_name'] == name, 'isin'] = isin
-                status.update(label=f"✅ {len(isin_map)} ISINs Resolved via AI", state="complete")
 
     # ── MARKET DATA ENRICHMENT ─────────────────────────────────────
-    with st.status("📡 Analysing Portfolio", expanded=False) as status:
+    with st.spinner("📡 Pulling Live Market Prices..."):
         try:
             processed_df = market_service.enrich_portfolio(processed_df)
-            status.update(label="✅ Live Prices Loaded", state="complete")
-        except Exception as e:
-            status.update(label=f"⚠️ Market data partial: {e}", state="error")
+        except Exception:
+            pass
 
     # ── METRICS ───────────────────────────────────────────────────
     stats = calculate_portfolio_metrics(processed_df)
