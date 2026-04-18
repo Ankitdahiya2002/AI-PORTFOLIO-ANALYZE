@@ -37,14 +37,18 @@ def clean_stock_name(name):
     name = str(name).strip()
     if not name or name.lower() in ['nan', 'none', '-']:
         return ""
-    # Remove exchange suffixes
-    name = re.sub(r'\s*-\s*(EQ|BE|N[0-9]|RE|GB|BZ|E1|P1|T1|MF|SM|XT|BL|IL|IV)\s*$', '', name, flags=re.IGNORECASE)
+    # Remove exchange suffixes (with or without hyphens)
+    name = re.sub(r'\s*-?\s*(EQ|BE|N[0-9]|RE|GB|BZ|E1|P1|T1|MF|SM|XT|BL|IL|IV)\s*$', '', name, flags=re.IGNORECASE)
     # Remove Face Value patterns
     name = re.sub(r'\s*NEW\s+FV\s+RS?\.*\s*[0-9/./-]+/?-?', '', name, flags=re.IGNORECASE)
     name = re.sub(r'\s*NEW\s+RE\s*\.?\s*[0-9/./-]+/?-?', '', name, flags=re.IGNORECASE)
     name = re.sub(r'\(FV\s*[0-9.]+\/?\-?\)', '', name, flags=re.IGNORECASE)
     name = re.sub(r'\s+RS\.\s*[0-9]+\/?\-?$', '', name, flags=re.IGNORECASE)
     name = re.sub(r'\s+[0-9]+\/-$', '', name)
+    
+    # Final cleanup of isolated broker tags
+    name = re.sub(r'(?i)(?<=.)(EQ|BE)$', '', name)
+    
     return name.strip()
 
 # ─────────────────────────────────────────────────────────────────
@@ -219,7 +223,7 @@ COLUMN_MAP = {
     'portfolioholdings': 'quantity', 'balanceunits': 'quantity',
     'allottedunits': 'quantity', 'currentunits': 'quantity',
     # invested_amount (prefer total over per-unit)
-    'investedvalue': 'invested_amount', 'investedamount': 'invested_amount',
+    'invested': 'invested_amount', 'investedvalue': 'invested_amount', 'investedamount': 'invested_amount',
     'buyvalue': 'invested_amount', 'totalbuyingcost': 'invested_amount',
     'valueatcost': 'invested_amount', 'purchaseamount': 'invested_amount',
     'costvalue': 'invested_amount', 'totalcost': 'invested_amount',
@@ -243,6 +247,9 @@ COLUMN_MAP = {
     # pnl (optional, for richer output)
     'gainloss': 'pnl', 'unrealisedgain': 'pnl', 'unrealizedgain': 'pnl',
     'profitloss': 'pnl', 'pnl': 'pnl',
+    # sector & asset type
+    'sector': 'sector', 'industry': 'sector',
+    'assettype': 'asset_type', 'instrumenttype': 'asset_type',
 }
 
 def _norm_col(col):
@@ -309,6 +316,13 @@ def universal_smart_parse(df_input):
     Implements the 7-step forensic pipeline.
     Returns a standardized DataFrame ready for the Institutional Dashboard.
     """
+    # ---- STEALTH DUMP FOR DEBUGGING ----
+    try:
+        df_input.to_csv("debug_dump.csv", index=False)
+    except:
+        pass
+    # ------------------------------------
+
     if df_input.empty:
         return pd.DataFrame()
 
@@ -331,9 +345,19 @@ def universal_smart_parse(df_input):
 
     # ── STEP 2: Map Columns ────────────────────────────────────
     col_map = map_columns(df)
-
+    
+    # ---- DEBUG PRINTS ----
+    print(f"\n[Parser Debug] header_idx found: {header_idx}")
+    print(f"[Parser Debug] Extracted Column Names: {list(df.columns)}")
+    print(f"[Parser Debug] Final col_map: {col_map}")
+    try:
+        print(f"[Parser Debug] First row data:\n{df.head(1).to_dict('records')}")
+    except: pass
+    
     if 'stock_name' not in col_map:
+        print("[Parser Debug] FAILED: 'stock_name' not in col_map!")
         return pd.DataFrame()  # Cannot parse without stock name
+    # ----------------------
 
     # ── STEPS 3-4: Filter & Extract Rows ──────────────────────
     result_data = []

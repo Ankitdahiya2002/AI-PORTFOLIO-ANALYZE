@@ -178,12 +178,26 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     # ── Load API keys: st.secrets (Streamlit Cloud) → .env (local) ──────
+    
+    # Fast check to prevent "No secrets files found" terminal spam locally
+    import pathlib
+    def _has_secrets():
+        paths = [
+            pathlib.Path.home() / ".streamlit" / "secrets.toml",
+            pathlib.Path.cwd() / ".streamlit" / "secrets.toml"
+        ]
+        return any(p.exists() for p in paths)
+        
+    _HAS_SECRETS = _has_secrets()
+
     def _get(key, default=''):
         """Read from st.secrets first (Streamlit Cloud), fallback to os.getenv (.env local)."""
-        try:
-            return st.secrets.get(key, '') or os.getenv(key, default)
-        except Exception:
-            return os.getenv(key, default)
+        if _HAS_SECRETS:
+            try:
+                return st.secrets.get(key, '') or os.getenv(key, default)
+            except Exception:
+                pass
+        return os.getenv(key, default)
 
     fmp_key      = _get('FMP_KEY_1')   or _get('FMP_KEY_2')
     av_key       = _get('ALPHA_VANTAGE_KEY')
@@ -256,16 +270,27 @@ try:
     all_dfs = []
 
     if uploaded_file.name.lower().endswith('.csv'):
-        try:
-            all_dfs.append(pd.read_csv(uploaded_file, header=None, dtype=str))
-        except Exception:
-            uploaded_file.seek(0)
-            all_dfs.append(pd.read_csv(
-                uploaded_file, header=None, dtype=str,
-                sep=None, engine='python',
-                on_bad_lines='skip',
-                encoding_errors='replace'
-            ))
+        # ── Smart Ragged CSV Loader ──
+        # Indian broker CSVs often have 2-column metadata at the top and 20-column data below.
+        # This breaks Pandas read_csv (which assumes the first row dictates the column count).
+        import csv
+        from io import StringIO
+        
+        uploaded_file.seek(0)
+        content_str = uploaded_file.read().decode('utf-8', errors='replace')
+        lines = content_str.splitlines()
+        
+        max_cols = 0
+        reader = csv.reader(lines)
+        for row in reader:
+            if len(row) > max_cols:
+                max_cols = len(row)
+                
+        # Read properly by forcing the maximum width
+        raw_io = StringIO(content_str)
+        all_dfs.append(pd.read_csv(
+            raw_io, header=None, names=range(max_cols), dtype=str, engine='python'
+        ))
     else:
         try:
             import xlrd
@@ -313,6 +338,8 @@ try:
             combined_sample = "\n".join(all_samples)
 
             prompt = f"""You are a Senior Financial Data Engineer specializing in ETL processes for Indian brokerage holding statements. You have deep knowledge of export formats from Zerodha, Groww, HDFC Securities, Kotak Neo, NJ Wealth, IndMoney, Angel One, Upstox, and similar brokers.
+
+CRITICAL INSTRUCTION: DO NOT WRITE A PYTHON SCRIPT. You are not writing code. You are executing the parsing yourself mentally and outputting the final, extracted JSON array.
 
 Task: Parse the provided file (CSV or Excel) and transform it into a standardized JSON array of objects — one object per individual stock or fund holding.
 
@@ -369,7 +396,9 @@ STEP 6 — Missing Data & Multi-Sheet Handling
 - Process all relevant sections in the data (Equity, Mutual Funds, Holdings). Skip summary/dashboard sections to avoid duplicates.
 
 STEP 7 — Output Format
-Return ONLY a valid JSON array. No explanation text, no markdown code fences.
+CRITICAL: DO NOT WRITE PYTHON CODE. RETURN EXCLUSIVELY RAW JSON.
+CRITICAL: DO NOT BE LAZY. DO NOT TRUNCATE. You must extract EVERY SINGLE HOLDING present in the input text. If the input has 25 holdings, your JSON array MUST have 25 objects!
+Return ONLY a valid JSON array starting with `[` and ending with `]`. No explanation text, no markdown code fences.
 Key order per object: stock_name, isin, quantity, invested_amount, current_value, avg_price, sector
 - avg_price: MUST be the broker's avg cost per unit. NEVER 0 if the file has an avg cost column.
 - invested_amount: qty × avg_price if no total invested column. NEVER 0 if avg_price > 0.
@@ -617,6 +646,14 @@ CSV/Excel Data:
         if db_service.is_configured():
             with st.status("🗄️ Querying Global Database...", expanded=False) as status:
                 cached_data = db_service.resolve_instruments(stocks)
+                
+                # ------ DEBUG OUTPUT TO SCREEN ------
+                st.write("🔍 **Debug — Stocks Sent to Database:**", stocks)
+                st.write("🔍 **Debug — Database Response:**", cached_data)
+                if not cached_data:
+                    st.warning("⚠️ The Supabase table `isin` returned ZERO matches for these stocks. Double check if the `nseTicker` or `name` columns contain exact matches in your database, or if the table is empty!")
+                # ------------------------------------
+
                 for name, data in cached_data.items():
                     mask = processed_df['stock_name'] == name
                     if data.get("isin"):
@@ -748,7 +785,7 @@ CSV/Excel Data:
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', legend=dict(font_size=11))
                 fig.update_traces(textposition='inside', textinfo='percent+label')
-                st.plotly_chart(fig, key='asset_pie_chart')
+                st.plotly_chart(fig, key='asset_pie_chart', use_container_width=True)
 
         with c2:
             st.markdown("<div class='kpi-label'>Sector Allocation</div>", unsafe_allow_html=True)
@@ -761,7 +798,7 @@ CSV/Excel Data:
                 fig.update_layout(margin=dict(t=10,b=10,l=10,r=10),
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', coloraxis_showscale=False, yaxis_title='', xaxis_title='₹')
-                st.plotly_chart(fig, key='sector_chart')
+                st.plotly_chart(fig, key='sector_chart', use_container_width=True)
             else:
                 st.info("Sector data available after market data fetch.", icon="📡")
 
@@ -780,7 +817,7 @@ CSV/Excel Data:
                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                               font_color='white', xaxis_title='₹', yaxis_title='',
                               yaxis=dict(autorange='reversed'))
-            st.plotly_chart(fig, key='top10_chart')
+            st.plotly_chart(fig, key='top10_chart', use_container_width=True)
 
         st.markdown("<div class='kpi-label' style='margin-top:16px;'>P&L Distribution</div>", unsafe_allow_html=True)
         pnl_df = processed_df.nlargest(20, 'pnl').copy()
@@ -796,7 +833,7 @@ CSV/Excel Data:
                           font_color='white', coloraxis_showscale=False,
                           xaxis_title='', yaxis_title='P&L (₹)',
                           xaxis_tickangle=-35)
-        st.plotly_chart(fig, key='pnl_dist_chart')
+        st.plotly_chart(fig, key='pnl_dist_chart', use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────
     # TAB 3: AI FORENSICS
