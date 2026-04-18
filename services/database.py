@@ -97,14 +97,14 @@ class SupabaseService:
 
     def resolve_instruments(self, stock_names: list) -> dict:
         """
-        Query the `isin` table to resolve ISINs, Sectors, and Tickers locally.
+        Query the `company isin` table to resolve ISINs, Sectors, and Tickers locally.
         Returns a dict: { "STOCK_NAME": {"isin": "...", "sector": "...", "ticker": "..."} }
         """
         if not self._ok or not stock_names:
             return {}
         
         results = {}
-        table = "isin"  # the exact table name provided
+        table = "company%20isin"  # URL-encoded exact table name
         
         for stock in stock_names:
             if not stock or len(stock) < 2:
@@ -112,11 +112,15 @@ class SupabaseService:
             
             clean_stock = stock.strip().upper()
             try:
-                # Query matches exactly on nseTicker/bseTicker OR fuzzily on name
-                query = f"or=(nseTicker.eq.{clean_stock},bseTicker.eq.{clean_stock},name.ilike.*{clean_stock}*)&limit=1"
+                # Safely escape query parameters natively to prevent URL crashes on spaces
+                params = {
+                    "or": f"(nseTicker.eq.{clean_stock},bseTicker.eq.{clean_stock},name.ilike.*{clean_stock}*)",
+                    "limit": "1"
+                }
                 r = requests.get(
-                    f"{self.url}/rest/v1/{table}?{query}",
+                    f"{self.url}/rest/v1/{table}",
                     headers=self._headers,
+                    params=params,
                     timeout=5
                 )
                 if r.status_code == 200:
@@ -128,8 +132,10 @@ class SupabaseService:
                             "sector": row.get("industry", "Unknown"),
                             "ticker": f"{row['nseTicker']}.NS" if row.get("nseTicker") else (f"{row['bseTicker']}.BO" if row.get("bseTicker") else "")
                         }
+                else:
+                    print(f"Supabase DB cache lookup failed for {stock}: {r.status_code} {r.text}")
             except Exception as e:
-                print(f"Supabase DB cache lookup error for {stock}: {e}")
+                print(f"Supabase DB cache exception for {stock}: {e}")
                 
         return results
 
