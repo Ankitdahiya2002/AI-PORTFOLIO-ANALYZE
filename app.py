@@ -778,11 +778,11 @@ CSV/Excel Data:
             if 'asset_type' in processed_df.columns:
                 fig = px.pie(processed_df, values='current_val', names='asset_type', hole=0.65,
                              color_discrete_sequence=['#38bdf8','#818cf8','#10b981','#fbbf24','#f43f5e','#fb923c'])
-                fig.update_layout(margin=dict(t=10,b=10,l=10,r=10), showlegend=True,
+                fig.update_layout(margin=dict(t=10,b=10,l=10,r=10), height=350, showlegend=True,
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', legend=dict(font_size=11))
                 fig.update_traces(textposition='inside', textinfo='percent+label')
-                st.plotly_chart(fig, key='asset_pie_chart', width=True)
+                st.plotly_chart(fig, key='asset_pie_chart', use_container_width=True)
 
         with c2:
             st.markdown("<div class='kpi-label'>Sector Allocation</div>", unsafe_allow_html=True)
@@ -792,10 +792,10 @@ CSV/Excel Data:
                 fig = px.bar(sec.sort_values('current_val', ascending=True), x='current_val', y='sector',
                              orientation='h', color='current_val',
                              color_continuous_scale='Blues')
-                fig.update_layout(margin=dict(t=10,b=10,l=10,r=10),
+                fig.update_layout(margin=dict(t=10,b=10,l=10,r=10), height=350,
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', coloraxis_showscale=False, yaxis_title='', xaxis_title='₹')
-                st.plotly_chart(fig, key='sector_chart', width=True)
+                st.plotly_chart(fig, key='sector_chart', use_container_width=True)
             else:
                 st.info("Sector data available after market data fetch.", icon="📡")
 
@@ -810,11 +810,11 @@ CSV/Excel Data:
                 text=[f"{p:+.1f}%" for p in top10['pnl_pct']],
                 textposition='outside',
             ))
-            fig.update_layout(margin=dict(t=10,b=10,l=10,r=10),
+            fig.update_layout(margin=dict(t=10,b=10,l=10,r=10), height=350,
                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                               font_color='white', xaxis_title='₹', yaxis_title='',
                               yaxis=dict(autorange='reversed'))
-            st.plotly_chart(fig, key='top10_chart', width=True)
+            st.plotly_chart(fig, key='top10_chart', use_container_width=True)
 
         st.markdown("<div class='kpi-label' style='margin-top:16px;'>P&L Distribution</div>", unsafe_allow_html=True)
         pnl_df = processed_df.nlargest(20, 'pnl').copy()
@@ -825,12 +825,12 @@ CSV/Excel Data:
                      color='pnl', color_continuous_scale=['#f43f5e', '#1e293b', '#10b981'],
                      text='pnl_pct')
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='auto')
-        fig.update_layout(margin=dict(t=10,b=10,l=10,r=10),
+        fig.update_layout(margin=dict(t=10,b=10,l=10,r=10), height=350,
                           paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                           font_color='white', coloraxis_showscale=False,
                           xaxis_title='', yaxis_title='P&L (₹)',
                           xaxis_tickangle=-35)
-        st.plotly_chart(fig, key='pnl_dist_chart', width=True)
+        st.plotly_chart(fig, key='pnl_dist_chart', use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────
     # TAB 3: AI FORENSICS
