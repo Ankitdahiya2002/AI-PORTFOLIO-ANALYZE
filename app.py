@@ -608,15 +608,34 @@ CSV/Excel Data:
     )
     processed_df = processed_df[processed_df['stock_name'].str.strip() != '']
 
-    # ── STEP 5: ISIN ENRICHMENT ────────────────────────────────────
+    # ── STEP 5: ISIN & SECTOR ENRICHMENT (SUPABASE + AI) ───────────
     missing_isin_mask = processed_df['isin'].str.len() < 5
-    if missing_isin_mask.any() and ai_service.is_configured():
-        with st.status("🔍 Resolving Missing ISINs via AI...", expanded=False) as status:
-            stocks = processed_df.loc[missing_isin_mask, 'stock_name'].unique().tolist()
-            isin_map = ai_service.lookup_isins(stocks, model_choice=llm_choice)
-            for name, isin in isin_map.items():
-                processed_df.loc[processed_df['stock_name'] == name, 'isin'] = isin
-            status.update(label=f"✅ {len(isin_map)} ISINs Resolved", state="complete")
+    if missing_isin_mask.any():
+        stocks = processed_df.loc[missing_isin_mask, 'stock_name'].unique().tolist()
+        
+        # 1. Supabase Fast Lookup
+        if db_service.is_configured():
+            with st.status("🗄️ Querying Global Database...", expanded=False) as status:
+                cached_data = db_service.resolve_instruments(stocks)
+                for name, data in cached_data.items():
+                    mask = processed_df['stock_name'] == name
+                    if data.get("isin"):
+                        processed_df.loc[mask, 'isin'] = data["isin"]
+                    if data.get("sector") and data["sector"] != 'Unknown':
+                        processed_df.loc[mask, 'sector'] = data["sector"]
+                    if data.get("ticker"):
+                        processed_df.loc[mask, '_ticker_hint'] = data["ticker"]
+                status.update(label=f"✅ {len(cached_data)} Instruments found in Database", state="complete")
+
+        # 2. AI Fallback for Remaining
+        missing_isin_mask = processed_df['isin'].str.len() < 5
+        if missing_isin_mask.any() and ai_service.is_configured():
+            with st.status("🔍 Resolving Missing ISINs via AI...", expanded=False) as status:
+                remaining_stocks = processed_df.loc[missing_isin_mask, 'stock_name'].unique().tolist()
+                isin_map = ai_service.lookup_isins(remaining_stocks, model_choice=llm_choice)
+                for name, isin in isin_map.items():
+                    processed_df.loc[processed_df['stock_name'] == name, 'isin'] = isin
+                status.update(label=f"✅ {len(isin_map)} ISINs Resolved via AI", state="complete")
 
     # ── MARKET DATA ENRICHMENT ─────────────────────────────────────
     with st.status("📡 Analysing Portfolio", expanded=False) as status:

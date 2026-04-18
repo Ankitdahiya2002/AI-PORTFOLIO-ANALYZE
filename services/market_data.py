@@ -106,7 +106,7 @@ class MarketDataService:
         except Exception:
             return None
 
-    def fetch_yf_data(self, stock_name, isin=''):
+    def fetch_yf_data(self, stock_name, isin='', ticker_hint=''):
         """
         Fetches live market data for a stock using smart ticker resolution.
         Never crashes — always returns None on failure.
@@ -116,6 +116,8 @@ class MarketDataService:
             return self.cache[cache_key]
 
         candidates = self._build_ticker_candidates(stock_name, isin)
+        if ticker_hint and ticker_hint not in candidates:
+            candidates.insert(0, ticker_hint)  # Priority to DB cached ticker
 
         for sym in candidates:
             result = self._fetch_ticker(sym)
@@ -144,7 +146,8 @@ class MarketDataService:
         for index, row in df.iterrows():
             stock  = row.get('stock_name', row.get('symbol', ''))
             isin   = row.get('isin', '')
-            data   = self.fetch_yf_data(stock, isin)
+            hint   = row.get('_ticker_hint', '')
+            data   = self.fetch_yf_data(stock, isin, hint)
 
             if data and data['price'] > 0:
                 current_ltp = df.at[index, 'ltp']
@@ -152,8 +155,11 @@ class MarketDataService:
                     df.at[index, 'ltp'] = data['price']
                 df.at[index, 'pe']      = data.get('pe', 0)
                 df.at[index, 'beta']    = data.get('beta', 1.0)
-                df.at[index, 'sector']  = data.get('sector', 'Unknown')
                 df.at[index, 'mkt_cap'] = data.get('mkt_cap', 0)
+                
+                # Update sector only if we don't have a better one from Supabase
+                if str(df.at[index, 'sector']).strip() in ('', 'Unknown'):
+                    df.at[index, 'sector'] = data.get('sector', 'Unknown')
 
             time.sleep(0.03)  # gentle pacing — ~33 stocks/sec
 
