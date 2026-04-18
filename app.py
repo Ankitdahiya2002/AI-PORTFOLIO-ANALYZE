@@ -782,7 +782,7 @@ CSV/Excel Data:
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', legend=dict(font_size=11))
                 fig.update_traces(textposition='inside', textinfo='percent+label')
-                st.plotly_chart(fig, key='asset_pie_chart', use_container_width=True)
+                st.plotly_chart(fig, key='asset_pie_chart', width=True)
 
         with c2:
             st.markdown("<div class='kpi-label'>Sector Allocation</div>", unsafe_allow_html=True)
@@ -795,7 +795,7 @@ CSV/Excel Data:
                 fig.update_layout(margin=dict(t=10,b=10,l=10,r=10),
                                   paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                   font_color='white', coloraxis_showscale=False, yaxis_title='', xaxis_title='₹')
-                st.plotly_chart(fig, key='sector_chart', use_container_width=True)
+                st.plotly_chart(fig, key='sector_chart', width=True)
             else:
                 st.info("Sector data available after market data fetch.", icon="📡")
 
@@ -814,7 +814,7 @@ CSV/Excel Data:
                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                               font_color='white', xaxis_title='₹', yaxis_title='',
                               yaxis=dict(autorange='reversed'))
-            st.plotly_chart(fig, key='top10_chart', use_container_width=True)
+            st.plotly_chart(fig, key='top10_chart', width=True)
 
         st.markdown("<div class='kpi-label' style='margin-top:16px;'>P&L Distribution</div>", unsafe_allow_html=True)
         pnl_df = processed_df.nlargest(20, 'pnl').copy()
@@ -830,7 +830,7 @@ CSV/Excel Data:
                           font_color='white', coloraxis_showscale=False,
                           xaxis_title='', yaxis_title='P&L (₹)',
                           xaxis_tickangle=-35)
-        st.plotly_chart(fig, key='pnl_dist_chart', use_container_width=True)
+        st.plotly_chart(fig, key='pnl_dist_chart', width=True)
 
     # ─────────────────────────────────────────────────────────────
     # TAB 3: AI FORENSICS
