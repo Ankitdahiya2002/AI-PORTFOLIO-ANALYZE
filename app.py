@@ -292,12 +292,9 @@ try:
             raw_io, header=None, names=range(max_cols), dtype=str, engine='python'
         ))
     else:
-        try:
-            import xlrd
-        except ImportError:
-            import subprocess, sys
-            # Force precisely the active python interpreter running Streamlit to install the package
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "xlrd", "openpyxl"])
+        # Require xlrd cleanly via requirements.txt
+        import xlrd
+        import openpyxl
             
         xl = pd.ExcelFile(uploaded_file)
         for sheet in xl.sheet_names:
